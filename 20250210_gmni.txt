@@ -1,0 +1,101 @@
+graph TD
+    A[Autosys job calls start_tbfw_services_wrapper.sh] --> B{Call run_restapi.sh};
+    B --> C{Check /work/restapi.pid* exists?};
+    C -- Yes --> D[Exit with code 1 & log "RestApi is already running"];
+    C -- No --> E[Remove /work/restapi.pid*];
+    E --> F[Rename Autosys file];
+    F --> G[Start new log file];
+    G --> H[Start restapi.py with 'start'];
+    H --> I[Wait 10 seconds];
+    I --> J{Call run_restapi.sh again};
+    J --> K{Check /work/restapi.pid* exists?};
+    K -- Yes --> L[Set permissions 777 on log file & pid file];
+    L --> M[Return code 0];
+    K -- No --> N[Exit with code 1 & log "RestApi failed to start"];
+    N --> O[Return code 1];
+    M --> P{Return code 0?};
+    P -- Yes --> Q[Log "Success. Executing service:restapi for action: start"];
+    P -- No --> R[Log "Failed. Executing service:restapi for action: stop"];
+    Q --> S[Return code to start_tbfw_services_wrapper.sh];
+    R --> S;
+    O --> S;
+    S --> T{Return code from start_tbfw_services_wrapper.sh is 0?};
+    T -- Yes --> U[Set permissions 777 on logs directory];
+    U --> V[Renew Kerberos ticket];
+    V --> W{Second argument valid (Extract/Hyper/Publish)?};
+    W -- No --> X[Exit with code 1];
+    W -- Yes --> Y[Identify cluster type];
+    Y --> Z{Cluster type Tableau or recognized?};
+    Z -- No --> AA[Exit with code 1];
+    Z -- Yes --> AB{Third argument is 'start'?};
+    AB -- Yes --> AC{Parallel execution of Start Extract, Hyper, and Publish};
+    AB -- No --> AD[Exit with code 1];
+
+    subgraph "Start Extract"
+        AC --> AE{Check /work/restapi.pid* exists?};
+        AE -- Yes --> AF[Get Extract PID];
+        AF --> AG{Extract PID empty?};
+        AG -- Yes --> AH[Rename Autosys file];
+        AH --> AI[Start new log file];
+        AI --> AJ[Start runservice.py with 'start' for Extract];
+        AJ --> AK[Wait 10 seconds];
+        AK --> AL[Get new Extract PID];
+        AL --> AM[Log "service started in background with pid ..."];
+        AM --> AN[Return code 0];
+        AG -- No --> AO[Exit with code 1 & log "Service is already running"];
+        AO --> AP[Return code 1];
+        AN --> AQ{Return code 0?};
+        AQ -- Yes --> AR[Log "Success. Executing service:restapi for action: start"];
+        AQ -- No --> AS[Log "Failed. Executing service:restapi for action: stop"];
+    end
+
+    subgraph "Start Hyper"
+        AC --> AT{Check /work/restapi.pid* exists?};
+        AT -- Yes --> AU[Get Hyper PID];
+        AU --> AV{Hyper PID empty?};
+        AV -- Yes --> AW[Rename Autosys file];
+        AW --> AX[Start new log file];
+        AX --> AY[Start runservice.py with 'start' for Hyper];
+        AY --> AZ[Wait 10 seconds];
+        AZ --> BA[Get new Hyper PID];
+        BA --> BB[Log "service started in background with pid ..."];
+        BB --> BC[Return code 0];
+        AV -- No --> BD[Exit with code 1 & log "Service is already running"];
+        BD --> BE[Return code 1];
+        BC --> BF{Return code 0?};
+        BF -- Yes --> BG[Log "Success. Executing service:restapi for action: start"];
+        BF -- No --> BH[Log "Failed. Executing service:restapi for action: stop"];
+    end
+
+    subgraph "Start Publish"
+        AC --> BI{Check /work/restapi.pid* exists?};
+        BI -- Yes --> BJ[Get Publish PID];
+        BJ --> BK{Publish PID empty?};
+        BK -- Yes --> BL[Rename Autosys file];
+        BL --> BM[Start new log file];
+        BM --> BN[Start runservice.py with 'start' for Publish];
+        BN --> BO[Wait 10 seconds];
+        BO --> BP[Get new Publish PID];
+        BP --> BQ[Log "service started in background with pid ..."];
+        BQ --> BR[Return code 0];
+        BK -- No --> BS[Exit with code 1 & log "Service is already running"];
+        BS --> BT[Return code 1];
+        BR --> BU{Return code 0?};
+        BU -- Yes --> BV[Log "Success. Executing service:restapi for action: start"];
+        BU -- No --> BW[Log "Failed. Executing service:restapi for action: stop"];
+    end
+
+    AR --> BX[All parallel jobs return 0?];
+    AS --> BX;
+    BG --> BX;
+    BH --> BX;
+    BV --> BX;
+    BW --> BX;
+
+    BX -- Yes --> BY[Exit start_tbfw_services_wrapper.sh with code 0];
+    BX -- No --> BZ[Exit start_tbfw_services_wrapper.sh with code 1];
+
+    AD --> BZ;
+    X --> BZ;
+    AA --> BZ;
+    T -- No --> BZ;
